@@ -2865,6 +2865,7 @@ export function applyFollowUp(
   }
 
   /* -- feature keywords ------------------------------------------ */
+  const alreadyPresent: string[] = [];
   for (const feature of detectFeatures(lower)) {
     const module = FEATURE_MODULES[feature];
     const before = changes.length;
@@ -2879,23 +2880,36 @@ export function applyFollowUp(
         phrase: module.summary,
         verb: "Connected",
       });
+    } else {
+      alreadyPresent.push(module.summary);
     }
   }
 
   /* -- nothing matched: still do something useful ---------------- */
   if (changes.length === 0) {
     const entityKey = matchEntityKey(lower);
-    if (entityKey) {
-      addTableByKey(next, entityKey, signals, changes);
-    } else {
-      retuneDashboard(next);
-      changes.push({
-        kind: "tune",
-        label: "refinements",
-        phrase: "re-tuned the dashboard tiles and tightened the layout",
-        verb: "Built",
-      });
-    }
+    if (entityKey) addTableByKey(next, entityKey, signals, changes);
+  }
+  if (changes.length === 0 && alreadyPresent.length > 0) {
+    // Everything asked for is already in the app - say so rather than
+    // inventing a change.
+    changes.push({
+      kind: "tune",
+      label: "already built",
+      phrase: `checked the app over - ${list(alreadyPresent.slice(0, 3))} ${
+        alreadyPresent.length === 1 ? "is" : "are"
+      } already wired up`,
+      verb: "Built",
+    });
+  }
+  if (changes.length === 0) {
+    retuneDashboard(next);
+    changes.push({
+      kind: "tune",
+      label: "refinements",
+      phrase: "re-tuned the dashboard tiles and tightened the layout",
+      verb: "Built",
+    });
   }
 
   // Keep the summary honest about the app's current size.
@@ -2932,7 +2946,10 @@ export function applyFollowUp(
   /* -- assistant reply ------------------------------------------- */
   const opener = REPLY_OPENERS[hash(raw) % REPLY_OPENERS.length] ?? "Done";
   const phrases = unique(changes.map((c) => c.phrase));
-  const headline = `${opener} - I ${list(phrases.slice(0, 4))}.`;
+  const headline =
+    phrases.length > 0
+      ? `${opener} - I ${list(phrases.slice(0, 4))}.`
+      : `${opener} - I went over ${next.title} and everything you asked for is already in place.`;
   const stats = `${next.title} now has ${next.tables.length} tables, ${next.screens.length} screens and ${next.roles.length} roles.`;
   const closing =
     changes.some((c) => c.kind === "capability")
