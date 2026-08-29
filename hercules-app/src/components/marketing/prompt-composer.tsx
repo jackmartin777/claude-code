@@ -42,7 +42,7 @@ export function PromptComposer({
     router.push(`/signup?prompt=${encodeURIComponent(prompt)}`);
   }, [router, value]);
 
-  const useChip = (chip: string) => {
+  const applyChip = (chip: string) => {
     setValue(chip);
     const el = textareaRef.current;
     if (el) {
@@ -62,7 +62,7 @@ export function PromptComposer({
       >
         <div
           className={cn(
-            "rounded-2xl border border-border bg-card shadow-lg shadow-foreground/5",
+            "rounded-2xl border border-border bg-card shadow-lg",
             "transition-[box-shadow,border-color] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30",
           )}
         >
@@ -154,7 +154,7 @@ export function PromptComposer({
             <button
               key={chip}
               type="button"
-              onClick={() => useChip(chip)}
+              onClick={() => applyChip(chip)}
               className={cn(
                 "rounded-full border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground",
                 "transition-colors hover:bg-accent hover:text-accent-foreground",

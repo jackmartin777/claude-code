@@ -50,15 +50,16 @@ export function CaseStudyRail() {
       <div
         className={cn(
           "marquee-paused relative mt-8 overflow-hidden sm:mt-10",
+          // Keyboard users tabbing through the cards pause the rail too.
+          "[&:focus-within_.animate-marquee-x]:[animation-play-state:paused]",
           "[mask-image:linear-gradient(to_right,transparent_0,black_6%,black_94%,transparent_100%)]",
-          "[-webkit-mask-image:linear-gradient(to_right,transparent_0,black_6%,black_94%,transparent_100%)]",
         )}
       >
         <div
           className="flex w-max animate-marquee-x [gap:var(--marquee-gap)]"
           style={
             {
-              "--marquee-duration": "56s",
+              "--marquee-duration": "50s",
               "--marquee-gap": "1rem",
             } as React.CSSProperties
           }

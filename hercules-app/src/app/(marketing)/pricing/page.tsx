@@ -67,7 +67,7 @@ export default function PricingPage() {
         </p>
       </Section>
 
-      <Section className="border-t border-border bg-muted/30" id="compare">
+      <Section className="scroll-mt-20 border-t border-border bg-muted/30" id="compare">
         <SectionHeading
           title="Compare plans"
           description="Everything Hercules builds into your apps, and where each capability becomes available."
@@ -106,7 +106,7 @@ export default function PricingPage() {
               <tbody key={group.heading}>
                 <tr className="border-b border-border bg-muted/60">
                   <th
-                    scope="colgroup"
+                    scope="rowgroup"
                     colSpan={tiers.length + 1}
                     className="px-5 py-2.5 text-[12px] font-semibold tracking-wide text-muted-foreground uppercase"
                   >

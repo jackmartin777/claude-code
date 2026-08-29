@@ -18,12 +18,13 @@ export function Prose({
         "[&_h3]:mt-8 [&_h3]:scroll-mt-24 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground",
         "[&_h2+p]:mt-3 [&_h3+p]:mt-2",
         "[&_p]:mt-4 [&_p]:text-pretty",
-        "[&_ul]:mt-4 [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:list-disc [&_li]:marker:text-border",
+        "[&_ul]:mt-4 [&_ul]:space-y-2 [&_ul]:pl-5 [&_ul>li]:list-disc",
         "[&_ol]:mt-4 [&_ol]:space-y-2 [&_ol]:pl-5 [&_ol>li]:list-decimal",
+        "[&_li]:marker:text-muted-foreground",
         "[&_a]:font-medium [&_a]:text-foreground [&_a]:underline [&_a]:underline-offset-4",
         "[&_strong]:font-semibold [&_strong]:text-foreground",
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_code]:text-foreground",
-        "[&>*:first-child]:mt-0",
+        "[&>*:first-child]:mt-0 [&>section:first-child>*:first-child]:mt-0",
         className,
       )}
       {...props}
