@@ -18,7 +18,7 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import type { ZodType } from "zod";
 
-import { getCredential, getUser, getUserByEmail } from "./store";
+import { getCredential, getSessionEpoch, getUser, getUserByEmail } from "./store";
 import type { ApiError, User } from "./types";
 
 export const SESSION_COOKIE = "hercules_session";
@@ -52,14 +52,32 @@ export function verifyPassword(
 /* Session cookie                                                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The cookie holds `userId.generation`. The generation lets "sign out
+ * everywhere" invalidate cookies already issued on other devices, which a bare
+ * user id could not do. Cookies written before this format are read as
+ * generation 0 so existing sessions keep working.
+ */
+function parseSessionCookie(value: string): { userId: string; epoch: number } | null {
+  if (!value) return null;
+  const separator = value.lastIndexOf(".");
+  if (separator < 0) return { userId: value, epoch: 0 };
+  const userId = value.slice(0, separator);
+  const epoch = Number.parseInt(value.slice(separator + 1), 10);
+  if (!userId || Number.isNaN(epoch)) return null;
+  return { userId, epoch };
+}
+
 export async function getSessionUserId(): Promise<string | null> {
   const jar = await cookies();
-  return jar.get(SESSION_COOKIE)?.value ?? null;
+  const raw = jar.get(SESSION_COOKIE)?.value ?? "";
+  return parseSessionCookie(raw)?.userId ?? null;
 }
 
 export async function setSession(userId: string): Promise<void> {
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, userId, {
+  const epoch = await getSessionEpoch(userId);
+  jar.set(SESSION_COOKIE, `${userId}.${epoch}`, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -81,9 +99,15 @@ export async function clearSession(): Promise<void> {
 
 /** The signed-in user, or null when there is no valid session. */
 export async function requireUser(): Promise<User | null> {
-  const userId = await getSessionUserId();
-  if (!userId) return null;
-  return getUser(userId);
+  const jar = await cookies();
+  const session = parseSessionCookie(jar.get(SESSION_COOKIE)?.value ?? "");
+  if (!session) return null;
+
+  // A cookie issued before the user's latest "sign out everywhere" is dead.
+  const epoch = await getSessionEpoch(session.userId);
+  if (session.epoch !== epoch) return null;
+
+  return getUser(session.userId);
 }
 
 /* ------------------------------------------------------------------ */

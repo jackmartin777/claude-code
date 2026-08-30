@@ -28,9 +28,11 @@ import type {
   ProjectKind,
   ProjectMetrics,
   ProjectStatus,
+  SupportRequest,
   User,
   Version,
 } from "./types";
+import { startingCredits } from "@/data/plans";
 import { slugify } from "./utils";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -89,6 +91,10 @@ async function loadFromDisk(): Promise<StoreData> {
         projects: parsed.projects,
         messages: parsed.messages,
         versions: parsed.versions,
+        sessionEpochs:
+          typeof parsed.sessionEpochs === "object" && parsed.sessionEpochs !== null
+            ? parsed.sessionEpochs
+            : {},
       };
     }
     return createSeedData();
@@ -172,6 +178,14 @@ function now(): string {
   return new Date().toISOString();
 }
 
+/** Thrown when a signup targets an address that already has an account. */
+export class EmailTakenError extends Error {
+  constructor(public readonly email: string) {
+    super(`An account already exists for ${email}.`);
+    this.name = "EmailTakenError";
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Users                                                               */
 /* ------------------------------------------------------------------ */
@@ -201,7 +215,10 @@ export async function createUser(input: CreateUserInput): Promise<User> {
   return mutate((data) => {
     const email = input.email.trim().toLowerCase();
     const existing = data.users.find((u) => u.email.toLowerCase() === email);
-    if (existing) return clone(existing);
+    // Returning the existing user here would authenticate whoever lost a race
+    // between two signups for the same address into an account they do not own.
+    // The check has to fail inside the mutation, where it is atomic.
+    if (existing) throw new EmailTakenError(email);
 
     const user: User = {
       id: id("usr"),
@@ -209,7 +226,7 @@ export async function createUser(input: CreateUserInput): Promise<User> {
       email,
       ...(input.company?.trim() ? { company: input.company.trim() } : {}),
       plan: input.plan ?? "free",
-      credits: input.credits ?? 25,
+      credits: input.credits ?? startingCredits(input.plan ?? "free"),
       createdAt: now(),
     };
     data.users.push(user);
@@ -250,6 +267,81 @@ export async function spendCredits(userId: string, amount: number): Promise<numb
     if (!user) return 0;
     user.credits = Math.max(0, user.credits - amount);
     return user.credits;
+  });
+}
+
+/** Fields a user may change about themselves. */
+export type UserPatch = Partial<Pick<User, "name" | "company">>;
+
+export async function updateUser(userId: string, patch: UserPatch): Promise<User | null> {
+  return mutate((data) => {
+    const user = data.users.find((u) => u.id === userId);
+    if (!user) return null;
+
+    if (patch.name !== undefined) {
+      const name = patch.name.trim();
+      if (name) user.name = name;
+    }
+    if (patch.company !== undefined) {
+      const company = patch.company.trim();
+      if (company) user.company = company;
+      else delete user.company;
+    }
+
+    // The owner's membership row carries their display name, so keep it in step.
+    for (const project of data.projects) {
+      for (const member of project.members) {
+        if (member.email.toLowerCase() === user.email.toLowerCase()) member.name = user.name;
+      }
+    }
+
+    return clone(user);
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Support                                                             */
+/* ------------------------------------------------------------------ */
+
+export interface SupportRequestInput {
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
+  userId?: string;
+}
+
+/** Records a message sent from the public support form. */
+export async function addSupportRequest(input: SupportRequestInput): Promise<SupportRequest> {
+  return mutate((data) => {
+    if (!data.supportRequests) data.supportRequests = [];
+    const record: SupportRequest = {
+      id: id("sup"),
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      topic: input.topic.trim(),
+      message: input.message.trim(),
+      createdAt: now(),
+      ...(input.userId ? { userId: input.userId } : {}),
+    };
+    data.supportRequests.push(record);
+    return clone(record);
+  });
+}
+
+/** The generation a user's sessions are currently issued under. */
+export async function getSessionEpoch(userId: string): Promise<number> {
+  const data = await read();
+  return data.sessionEpochs?.[userId] ?? 0;
+}
+
+/** Invalidates every session cookie already issued for this user. */
+export async function bumpSessionEpoch(userId: string): Promise<number> {
+  return mutate((data) => {
+    if (!data.sessionEpochs) data.sessionEpochs = {};
+    const next = (data.sessionEpochs[userId] ?? 0) + 1;
+    data.sessionEpochs[userId] = next;
+    return next;
   });
 }
 
@@ -321,6 +413,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
       label: "Initial build",
       createdAt: timestamp,
       published: project.status === "live",
+      spec: clone(project.spec),
     });
 
     return clone(project);
@@ -423,10 +516,13 @@ export interface AddVersionInput {
   version: number;
   label: string;
   published?: boolean;
+  /** Snapshot to record. Defaults to the project's spec at write time. */
+  spec?: AppSpec;
 }
 
 export async function addVersion(input: AddVersionInput): Promise<Version> {
   return mutate((data) => {
+    const project = data.projects.find((p) => p.id === input.projectId);
     const version: Version = {
       id: id("ver"),
       projectId: input.projectId,
@@ -434,6 +530,7 @@ export async function addVersion(input: AddVersionInput): Promise<Version> {
       label: input.label,
       createdAt: now(),
       published: input.published ?? false,
+      spec: clone(input.spec ?? project?.spec),
     };
     data.versions.push(version);
     return clone(version);
@@ -494,6 +591,8 @@ export async function commitBuild(params: {
       label: params.versionLabel,
       createdAt: timestamp,
       published: project.status === "live",
+      // The snapshot is what makes this version restorable.
+      spec: clone(params.spec),
     };
     data.versions.push(version);
 

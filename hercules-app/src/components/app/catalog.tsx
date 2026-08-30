@@ -1,35 +1,28 @@
+import { PLANS } from "@/data/plans";
 import type { Plan, ProjectKind, ProjectStatus, ScreenKind } from "@/lib/types";
 
-/** Plan metadata used by the sidebar credit meter, usage page and billing tab. */
+/**
+ * Plan metadata used by the sidebar credit meter, usage page and billing tab.
+ * Derived from the shared plan definitions so the in-app allowance can never
+ * drift from what the pricing page promises or what signup actually grants.
+ */
 export const PLAN_META: Record<
   Plan,
   { label: string; credits: number; price: string; blurb: string }
-> = {
-  free: {
-    label: "Free",
-    credits: 100,
-    price: "$0",
-    blurb: "Kick the tyres. One live app, Hercules subdomain.",
-  },
-  pro: {
-    label: "Pro",
-    credits: 1_000,
-    price: "$40",
-    blurb: "For builders shipping real internal tools.",
-  },
-  business: {
-    label: "Business",
-    credits: 5_000,
-    price: "$150",
-    blurb: "Custom domains, roles and permissions, audit log.",
-  },
-  enterprise: {
-    label: "Enterprise",
-    credits: 25_000,
-    price: "Custom",
-    blurb: "SSO, private hosting, dedicated support engineer.",
-  },
-};
+> = Object.fromEntries(
+  (Object.keys(PLANS) as Plan[]).map((plan) => {
+    const definition = PLANS[plan];
+    return [
+      plan,
+      {
+        label: definition.label,
+        credits: definition.credits,
+        price: definition.priceLabel,
+        blurb: definition.blurb,
+      },
+    ];
+  })
+) as Record<Plan, { label: string; credits: number; price: string; blurb: string }>;
 
 export const STATUS_META: Record<
   ProjectStatus,

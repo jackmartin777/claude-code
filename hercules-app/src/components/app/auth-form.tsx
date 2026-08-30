@@ -140,10 +140,25 @@ export function LoginForm({ prompt = "" }: { prompt?: string }) {
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState<"form" | "demo" | null>(null);
 
-  const finish = React.useCallback(() => {
+  /**
+   * An existing user can arrive from the marketing composer too, so the idea
+   * they typed has to survive login exactly as it does through signup —
+   * otherwise their description is silently dropped at the door.
+   */
+  const finish = React.useCallback(async () => {
+    if (prompt.trim()) {
+      try {
+        const project = await createProject({ prompt: prompt.trim() });
+        router.push(`/dashboard/${project.id}`);
+        router.refresh();
+        return;
+      } catch {
+        /* fall through to the dashboard rather than stranding them on login */
+      }
+    }
     router.push("/dashboard");
     router.refresh();
-  }, [router]);
+  }, [prompt, router]);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -157,7 +172,7 @@ export function LoginForm({ prompt = "" }: { prompt?: string }) {
     setPending("form");
     try {
       await login(email.trim(), password);
-      finish();
+      await finish();
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "We could not sign you in.");
       setPending(null);
@@ -169,7 +184,7 @@ export function LoginForm({ prompt = "" }: { prompt?: string }) {
     setPending("demo");
     try {
       await login(DEMO_EMAIL, DEMO_PASSWORD);
-      finish();
+      await finish();
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "The demo account is unavailable.");
       setPending(null);
@@ -401,7 +416,8 @@ export function SignupForm({ prompt = "" }: { prompt?: string }) {
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
-            href="/login"
+            // Carry the idea across so switching to sign-in does not discard it.
+            href={prompt.trim() ? `/login?prompt=${encodeURIComponent(prompt.trim())}` : "/login"}
             className="rounded font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             Sign in

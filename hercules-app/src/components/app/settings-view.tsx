@@ -8,6 +8,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Dialog } from "@/components/app/dialog";
 import { EmptyState, ErrorNote, Meter, Skeleton, Spinner } from "@/components/app/primitives";
 import { PLAN_META } from "@/components/app/catalog";
+import { updateProfile } from "@/lib/api-client";
 import { useSession } from "@/components/app/session";
 import { deleteProject } from "@/lib/api-client";
 import type { Member, Role } from "@/lib/types";
@@ -140,20 +141,30 @@ function Panel({
 }
 
 function ProfilePanel() {
-  const { user } = useSession();
+  const { user, setUser } = useSession();
   const [name, setName] = React.useState(user?.name ?? "");
   const [company, setCompany] = React.useState(user?.company ?? "");
   const [saved, setSaved] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   if (!user) return null;
 
+  // Persist for real: reporting "Profile saved" after a timer meant the old
+  // name came back on the next navigation.
   const save = async () => {
     setSaving(true);
     setSaved(false);
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    setSaving(false);
-    setSaved(true);
+    setError(null);
+    try {
+      const updated = await updateProfile({ name: name.trim(), company: company.trim() });
+      setUser(updated);
+      setSaved(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save your profile.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -162,7 +173,11 @@ function ProfilePanel() {
       description="How you appear to your teammates."
       footer={
         <>
-          {saved ? (
+          {error ? (
+            <p className="mr-auto text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : saved ? (
             <p className="mr-auto flex items-center gap-1.5 text-sm text-success">
               <Check className="size-4" aria-hidden="true" />
               Profile saved
@@ -526,8 +541,8 @@ function DangerPanel() {
               Ends this session on every device you are signed in on.
             </p>
           </div>
-          <Button variant="outline" onClick={() => void signOut()}>
-            Sign out
+          <Button variant="outline" onClick={() => void signOut({ everywhere: true })}>
+            Sign out everywhere
           </Button>
         </div>
       </div>

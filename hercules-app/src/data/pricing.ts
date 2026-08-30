@@ -1,9 +1,13 @@
 /**
- * Pricing model for the marketing site. Hercules does not publish its real
- * numbers, so these tiers are the canonical figures used by /pricing, the
- * comparison table and anywhere else money is mentioned — change them here
- * and every surface stays consistent.
+ * Pricing presentation for the marketing site. Hercules does not publish its
+ * real numbers, so these tiers describe a credible model.
+ *
+ * Prices and credit allowances are not defined here — they come from
+ * `@/data/plans`, the single source shared with signup and the in-app credit
+ * meter. This file owns only how they are presented.
  */
+
+import { PLANS } from "@/data/plans";
 
 export type BillingPeriod = "monthly" | "annual";
 
@@ -29,16 +33,30 @@ export type PricingTier = {
 
 export const ANNUAL_DISCOUNT = 0.2;
 
+/*
+ * Prices and credit allowances come from `@/data/plans`, which is also what
+ * signup grants and what the in-app credit meter measures against. Restating
+ * them here let the page advertise 30 credits while signup handed out 25.
+ */
+const price = (id: TierId) => ({
+  monthly: PLANS[id].monthly,
+  annual: PLANS[id].annual,
+});
+
+const allowance = (id: TierId) =>
+  Number.isFinite(PLANS[id].credits)
+    ? `${PLANS[id].credits.toLocaleString("en-US")} monthly credits`
+    : "Unlimited credits";
+
 export const tiers: PricingTier[] = [
   {
     id: "free",
     name: "Free",
     positioning: "Try Hercules and ship your first app.",
-    monthly: 0,
-    annual: 0,
-    credits: "30 monthly credits",
+    ...price("free"),
+    credits: allowance("free"),
     features: [
-      "30 monthly credits",
+      allowance("free"),
       "1 published app",
       "hercules.app subdomain",
       "Database, auth and hosting included",
@@ -51,11 +69,10 @@ export const tiers: PricingTier[] = [
     id: "pro",
     name: "Pro",
     positioning: "For founders and small teams running on their own software.",
-    monthly: 30,
-    annual: 24,
-    credits: "300 monthly credits",
+    ...price("pro"),
+    credits: allowance("pro"),
     features: [
-      "300 monthly credits",
+      allowance("pro"),
       "Unlimited published apps",
       "Custom domains with free SSL",
       "Remove the Hercules badge",
@@ -69,11 +86,10 @@ export const tiers: PricingTier[] = [
     id: "business",
     name: "Business",
     positioning: "For teams that need control over who can do what.",
-    monthly: 100,
-    annual: 80,
-    credits: "1,200 monthly credits",
+    ...price("business"),
+    credits: allowance("business"),
     features: [
-      "1,200 monthly credits",
+      allowance("business"),
       "Everything in Pro",
       "Roles and permissions",
       "SSO for your whole workspace",
@@ -136,7 +152,12 @@ export const comparison: ComparisonGroup[] = [
       {
         label: "Monthly credits",
         hint: "Spent when Hercules builds or changes an app.",
-        values: { free: "30", pro: "300", business: "1,200", enterprise: "Custom" },
+        values: {
+        free: PLANS.free.credits.toLocaleString("en-US"),
+        pro: PLANS.pro.credits.toLocaleString("en-US"),
+        business: PLANS.business.credits.toLocaleString("en-US"),
+        enterprise: "Custom",
+      },
       },
       {
         label: "Published apps",

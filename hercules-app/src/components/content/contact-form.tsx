@@ -4,6 +4,7 @@ import * as React from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { submitSupportRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 const topics = [
@@ -24,8 +25,10 @@ export function ContactForm() {
   const [errors, setErrors] = React.useState<Errors>({});
   const [submitted, setSubmitted] = React.useState(false);
   const [name, setName] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [sendError, setSendError] = React.useState<string | null>(null);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const values = {
@@ -47,9 +50,24 @@ export function ContactForm() {
 
     setErrors(next);
 
-    if (Object.keys(next).length === 0) {
+    if (Object.keys(next).length > 0) return;
+
+    // Actually send it. The success state below promises a human reply, so the
+    // message has to reach the server before that promise is made.
+    setSending(true);
+    setSendError(null);
+    try {
+      await submitSupportRequest(values);
       setName(values.name);
       setSubmitted(true);
+    } catch (cause) {
+      setSendError(
+        cause instanceof Error
+          ? cause.message
+          : "We could not send that just now. Please try again, or email support@hercules.app."
+      );
+    } finally {
+      setSending(false);
     }
   }
 
@@ -85,7 +103,7 @@ export function ContactForm() {
   return (
     <form
       noValidate
-      onSubmit={handleSubmit}
+      onSubmit={(event) => void handleSubmit(event)}
       className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-8"
     >
       <div className="grid gap-5 sm:grid-cols-2">
@@ -191,12 +209,18 @@ export function ContactForm() {
         </div>
       </div>
 
+      {sendError ? (
+        <p className="mt-6 text-sm text-destructive" role="alert">
+          {sendError}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
         <p className="text-[13px] text-muted-foreground">
           Fields marked * are required.
         </p>
-        <Button type="submit" size="lg">
-          Send message
+        <Button type="submit" size="lg" disabled={sending}>
+          {sending ? "Sending…" : "Send message"}
         </Button>
       </div>
     </form>

@@ -26,6 +26,7 @@ import type {
   ProjectStatus,
   User,
   Version,
+  SupportRequest,
 } from "./types";
 import { slugify } from "./utils";
 
@@ -45,6 +46,15 @@ export interface StoreData {
   projects: Project[];
   messages: Message[];
   versions: Version[];
+  /**
+   * Per-user session generation. A session cookie carries the generation it was
+   * issued under; bumping a user's number invalidates every cookie already out
+   * there, which is what "sign out everywhere" needs in order to be true.
+   * Absent entries are treated as generation 0.
+   */
+  sessionEpochs?: Record<string, number>;
+  /** Messages sent from the public support form. */
+  supportRequests?: SupportRequest[];
 }
 
 export const SCHEMA_VERSION = 1;

@@ -113,6 +113,12 @@ export interface Version {
   label: string;
   createdAt: string;
   published: boolean;
+  /**
+   * The app as it stood at this version. Restoring a version replays this
+   * snapshot; without it "restore" could only rewind the version number while
+   * leaving the actual screens and tables at the latest build.
+   */
+  spec?: AppSpec;
 }
 
 /* ------------------------------------------------------------------ */
@@ -140,6 +146,17 @@ export type BuildEvent =
   | { type: "spec"; spec: AppSpec }
   | { type: "done"; message: Message; project: Project }
   | { type: "error"; message: string };
+
+export interface SupportRequest {
+  id: string;
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
+  createdAt: string;
+  /** Set when the sender was signed in at the time. */
+  userId?: string;
+}
 
 export interface ApiError {
   error: string;

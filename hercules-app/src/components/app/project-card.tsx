@@ -64,10 +64,14 @@ export function ProjectCard({ project }: { project: Project }) {
     setMenuOpen(false);
     setPending(true);
     try {
+      // Duplicating sends the source id so the server copies the app as it
+      // stands now; regenerating from the creation prompt would roll the copy
+      // back to the first build and lose every later change.
       const copy = await createProject({
         prompt: project.prompt,
         kind: project.kind,
         name: `${project.name} copy`,
+        duplicateOf: project.id,
       });
       upsertProject(copy);
     } catch {

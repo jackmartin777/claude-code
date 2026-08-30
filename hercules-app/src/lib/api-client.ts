@@ -91,8 +91,35 @@ export function signup(input: {
   });
 }
 
-export function logout(): Promise<{ ok: boolean }> {
-  return request<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
+/** Send a message from the public support form. */
+export function submitSupportRequest(input: {
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
+}): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/support", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+}
+
+/** Update the signed-in user's own profile. */
+export function updateProfile(input: { name?: string; company?: string }): Promise<User> {
+  return request<User>("/api/auth/me", {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+}
+
+export function logout(options?: { everywhere?: boolean }): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/auth/logout", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ everywhere: options?.everywhere ?? false }),
+  });
 }
 
 export function getMe(): Promise<User | null> {
@@ -115,6 +142,8 @@ export function createProject(input: {
   prompt: string;
   kind?: ProjectKind;
   name?: string;
+  /** Copy this app's current spec instead of generating one from the prompt. */
+  duplicateOf?: string;
 }): Promise<Project> {
   return request<Project>("/api/projects", {
     method: "POST",
@@ -153,6 +182,15 @@ export function getMessages(projectId: string): Promise<Message[]> {
 export function getVersions(projectId: string): Promise<Version[]> {
   return request<Version[]>(`/api/projects/${encodeURIComponent(projectId)}/versions`, {
     cache: "no-store",
+  });
+}
+
+/** Restore a previous version's snapshot as a new version on top of history. */
+export function restoreVersion(projectId: string, versionId: string): Promise<Project> {
+  return request<Project>(`/api/projects/${encodeURIComponent(projectId)}/restore`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ versionId }),
   });
 }
 

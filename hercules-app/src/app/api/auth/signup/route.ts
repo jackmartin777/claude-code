@@ -8,7 +8,7 @@ import {
   route,
   setSession,
 } from "@/lib/session";
-import { createUser, getUserByEmail } from "@/lib/store";
+import { createUser, EmailTakenError, getUserByEmail } from "@/lib/store";
 import type { User } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,14 +37,23 @@ export const POST = route(async (request) => {
     return apiError("An account with that email already exists. Try signing in.", 400);
   }
 
-  const user = await createUser({
-    name: parsed.data.name,
-    email: parsed.data.email,
-    ...(parsed.data.company ? { company: parsed.data.company } : {}),
-    plan: "free",
-    credits: 25,
-    credential: createCredential(parsed.data.password),
-  });
+  // The pre-check above is a courtesy for a better message; createUser repeats
+  // it atomically, so two concurrent signups for one address cannot both win.
+  let user: User;
+  try {
+    user = await createUser({
+      name: parsed.data.name,
+      email: parsed.data.email,
+      ...(parsed.data.company ? { company: parsed.data.company } : {}),
+      plan: "free",
+      credential: createCredential(parsed.data.password),
+    });
+  } catch (error) {
+    if (error instanceof EmailTakenError) {
+      return apiError("An account with that email already exists. Try signing in.", 409);
+    }
+    throw error;
+  }
 
   await setSession(user.id);
   return json<User>(user, 201);

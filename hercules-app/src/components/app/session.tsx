@@ -15,7 +15,8 @@ interface SessionValue {
   upsertProject: (project: Project) => void;
   removeProject: (id: string) => void;
   spendCredits: (amount: number) => void;
-  signOut: () => Promise<void>;
+  setUser: (user: User) => void;
+  signOut: (options?: { everywhere?: boolean }) => Promise<void>;
 }
 
 const SessionContext = React.createContext<SessionValue | null>(null);
@@ -88,9 +89,9 @@ export function SessionProvider({
     );
   }, []);
 
-  const signOut = React.useCallback(async () => {
+  const signOut = React.useCallback(async (options?: { everywhere?: boolean }) => {
     try {
-      await logout();
+      await logout(options);
     } catch {
       /* the session is being discarded either way */
     }
@@ -111,6 +112,7 @@ export function SessionProvider({
       upsertProject,
       removeProject,
       spendCredits,
+      setUser,
       signOut,
     }),
     [

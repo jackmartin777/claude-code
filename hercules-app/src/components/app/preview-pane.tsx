@@ -17,7 +17,7 @@ import { ConfirmDialog } from "@/components/app/dialog";
 import { EmptyState, ErrorNote, Skeleton } from "@/components/app/primitives";
 import { AppPreview, labelFor } from "@/components/app/app-preview";
 import { SCREEN_KIND_LABEL } from "@/components/app/catalog";
-import { getVersions, updateProject } from "@/lib/api-client";
+import { getVersions, restoreVersion } from "@/lib/api-client";
 import type { AppSpec, Project, Version } from "@/lib/types";
 import { cn, relativeTime } from "@/lib/utils";
 
@@ -439,9 +439,10 @@ function VersionsTab({
     if (!restoring) return;
     setPending(true);
     try {
-      const updated = await updateProject(project.id, { version: restoring.version });
+      const updated = await restoreVersion(project.id, restoring.id);
       onProjectUpdate(updated);
       setRestoring(null);
+      await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Restore failed.");
     } finally {
