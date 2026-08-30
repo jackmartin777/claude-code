@@ -37,6 +37,25 @@ const COMPANIES = [
 const STATUSES = ["Open", "In progress", "Blocked", "Review", "Complete"] as const;
 const CITIES = ["Cape Town", "Austin", "Rotterdam", "Manchester", "Lisbon", "Toronto"] as const;
 const NOUNS = ["Onboarding pack", "Quarterly review", "Site survey", "Renewal", "Delivery run", "Trial fit-out"] as const;
+const STREETS = ["Harbour Rd", "Mill Lane", "Kloof St", "Alder Way", "Bridge St", "Vine Terrace"] as const;
+
+/*
+ * A row's identity is seeded from the row, not the field, so every column in
+ * the same row agrees: the name, the email and the company all describe one
+ * person. Seeding per field made each cell pick independently, which rendered
+ * rows like "Clara Nunez / priya@cobalt.com".
+ */
+function rowPerson(seedBase: string, row: number): string {
+  return pickFrom(PEOPLE, `${seedBase}:person:${row}`);
+}
+
+function rowCompany(seedBase: string, row: number): string {
+  return pickFrom(COMPANIES, `${seedBase}:company:${row}`);
+}
+
+function firstWord(value: string): string {
+  return value.split(" ")[0].toLowerCase();
+}
 
 export function labelFor(name: string): string {
   const spaced = name.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
@@ -47,10 +66,8 @@ export function cellValue(field: FieldSpec, seedBase: string, row: number): stri
   const seed = `${seedBase}:${field.name}:${row}`;
   const lower = field.name.toLowerCase();
   switch (field.type) {
-    case "email": {
-      const person = pickFrom(PEOPLE, seed);
-      return `${person.split(" ")[0].toLowerCase()}@${pickFrom(COMPANIES, seed).split(" ")[0].toLowerCase()}.com`;
-    }
+    case "email":
+      return `${firstWord(rowPerson(seedBase, row))}@${firstWord(rowCompany(seedBase, row))}.com`;
     case "number":
       return String(4 + (hashString(seed) % 480));
     case "currency":
@@ -65,20 +82,29 @@ export function cellValue(field: FieldSpec, seedBase: string, row: number): stri
     case "select":
       return pickFrom(field.options && field.options.length > 0 ? field.options : STATUSES, seed);
     case "relation":
-      return pickFrom(lower.includes("owner") || lower.includes("user") ? PEOPLE : COMPANIES, seed);
+      return lower.includes("owner") || lower.includes("user") || lower.includes("contact")
+        ? rowPerson(seedBase, row)
+        : rowCompany(seedBase, row);
     case "url":
-      return `${pickFrom(COMPANIES, seed).split(" ")[0].toLowerCase()}.com`;
+      return `${firstWord(rowCompany(seedBase, row))}.com`;
     default: {
       if (lower.includes("email")) return cellValue({ ...field, type: "email" }, seedBase, row);
+      // Shapes that read as nonsense when filled from the generic noun pool.
+      if (lower.includes("phone") || lower.includes("mobile") || lower.includes("tel")) {
+        return `+1 (${200 + (hashString(seed) % 700)}) ${100 + (hashString(`${seed}:a`) % 900)}-${1000 + (hashString(`${seed}:b`) % 9000)}`;
+      }
+      if (lower.includes("address") || lower.includes("street")) {
+        return `${1 + (hashString(seed) % 240)} ${pickFrom(STREETS, seed)}`;
+      }
       if (lower.includes("city") || lower.includes("region") || lower.includes("location")) {
         return pickFrom(CITIES, seed);
       }
       if (lower.includes("status") || lower.includes("stage")) return pickFrom(STATUSES, seed);
       if (lower.includes("company") || lower.includes("account") || lower.includes("supplier")) {
-        return pickFrom(COMPANIES, seed);
+        return rowCompany(seedBase, row);
       }
       if (lower.includes("name") || lower.includes("contact") || lower.includes("owner")) {
-        return pickFrom(PEOPLE, seed);
+        return rowPerson(seedBase, row);
       }
       return pickFrom(NOUNS, seed);
     }

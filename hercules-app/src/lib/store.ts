@@ -308,6 +308,21 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
       metrics: input.metrics ?? { activeUsers: 1, requests30d: 0, uptime: 100, storageMb: 8 },
     };
     data.projects.push(project);
+
+    // Record v1 alongside the project itself. The project is created with a
+    // spec already generated from its prompt, so without this row the version
+    // history would start at the first edit and there would be no way back to
+    // the original build. Written in the same mutation to keep a project and
+    // its opening version atomic.
+    data.versions.push({
+      id: id("ver"),
+      projectId: project.id,
+      version: project.version,
+      label: "Initial build",
+      createdAt: timestamp,
+      published: project.status === "live",
+    });
+
     return clone(project);
   });
 }

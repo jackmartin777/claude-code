@@ -94,7 +94,17 @@ export const POST = routeWithParams<Params>(async (request, context) => {
   const content = parsed.data.content;
 
   const history = await listMessages(id);
-  const isFirstBuild = history.length === 0;
+
+  // A project is created with a spec already generated from its prompt, but
+  // with no messages — the builder shows that prompt as an intro card and the
+  // user clicks it to watch the initial build run. Only that replay is a first
+  // build. Anything else typed into an empty transcript is a refinement of the
+  // spec the project already has, so it must go through applyFollowUp; treating
+  // it as a first build would regenerate the app from the follow-up text alone
+  // and discard everything the creation prompt produced.
+  const normalise = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+  const isFirstBuild =
+    history.length === 0 && normalise(content) === normalise(project.prompt);
 
   let spec: AppSpec;
   let steps: BuildStep[];
